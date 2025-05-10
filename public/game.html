@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>misucraft ~ vibing</title>
+  <link rel="icon" type="image/png" href="../public/img/logo.png">
+  <link rel="stylesheet" href="../src/css/styles.css">
+  <script src="../dist/js/game.js" type="module" defer></script>
+</head>
+<body>
+  <div id="deathmenu" class="menu hidden">
+      <h1 class="title">You died!</h1>
+      <div class="wrapper">
+          <button class="button" onclick="">Respawn</button>
+          <button class="button" onclick="">Save Game</button>
+          <button class="button" onclick="">Clear Save</button>
+          <a class="button" href="../index.html">Menu</a>
+      </div>
+  </div>
+  <div id="pausemenu" class="menu hidden">
+      <h1 class="title">Paused</h1>
+      <div class="wrapper">
+          <button class="button" onclick="">Resume</button>
+          <button class="button" onclick="">Save Game</button>
+          <button class="button" onclick="">Clear Save</button>
+          <a class="button" href="../index.html">Menu</a>
+      </div>
+  </div>
+  <div id="healthbar">
+    <div class="heart">&#9829</div>
+    <div class="heart">&#9829</div>
+    <div class="heart">&#9829</div>
+    <div class="heart">&#9829</div>
+    <div class="heart">&#9829</div>
+    <div class="heart">&#9829</div>
+    <div class="heart">&#9829</div>
+    <div class="heart">&#9829</div>
+    <div class="heart">&#9829</div>
+    <div class="heart">&#9829</div>
+  </div>
+  <div id="hotbar">
+    <div class="slot" id="selected"><img src="" draggable="false"></div>
+    <div class="slot"><img src="" draggable="false"></div>
+    <div class="slot"><img src="" draggable="false"></div>
+    <div class="slot"><img src="" draggable="false"></div>
+    <div class="slot"><img src="" draggable="false"></div>
+    <div class="slot"><img src="" draggable="false"></div>
+    <div class="slot"><img src="" draggable="false"></div>
+    <div class="slot"><img src="" draggable="false"></div>
+    <div class="slot"><img src="" draggable="false"></div>
+  </div>
+  <canvas id="canvas"></canvas>
+</body>
+</html>
