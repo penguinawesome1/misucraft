@@ -1,8 +1,8 @@
-import {Animation} from './animation';
-import * as constants from './constants';
-import {screenToWorld} from './isometric-transform';
-import {Hitbox3D, Position2D, Position3D, Velocity3D} from './physics';
-// import {} as gameManager from './game-manager';
+import {Animation} from './animation.js';
+import * as constants from './constants.js';
+import {screenToWorld} from './isometric-transform.js';
+import {Hitbox3D, Position2D, Position3D, Velocity3D} from './physics.js';
+import {drawPlayer} from './renderer.js'
 
 const enum Direction {
   NORTH = -1,
@@ -20,9 +20,7 @@ export class Player {
   #gridHitbox: Hitbox3D;
   #chunkPosition: Position2D;
   #velocity: Velocity3D;
-
-  #canvas: HTMLCanvasElement;
-  #ctx: CanvasRenderingContext2D;
+  #respawnPosition: Position3D;
 
   #scale: number;
   #direction: Direction;
@@ -37,15 +35,13 @@ export class Player {
 
   input: {north: boolean; south: boolean; east: boolean; west: boolean;}
 
-  constructor(
-      canvas: HTMLCanvasElement, scale: number, animations: Animation[]) {
+  constructor(scale: number, animations: Animation[]) {
     this.#pixelHitbox = {x: 0, y: 0, z: 0, width: 0, height: 0, depth: 0};
     this.#gridHitbox = {x: 0, y: 0, z: 0, width: 0, height: 0, depth: 0};
     this.#chunkPosition = {x: 0, y: 0};
     this.#velocity = {x: 0, y: 0, z: 0};
+    this.#respawnPosition = {x: 0, y: 0, z: 0};
 
-    this.#canvas = canvas;
-    this.#ctx = canvas.getContext('2D') as CanvasRenderingContext2D;
     this.#scale = scale;
     this.#direction = Direction.SOUTH;
     this.#animations = animations;
@@ -64,6 +60,7 @@ export class Player {
           (this.#image.width / this.#animations[0].frameCount) * this.#scale;
       this.pixelHitbox.height = this.#image.height * this.#scale;
     };
+    this.#image.src = animations[0].imageSrc;
   }
 
   get pixelHitbox(): Hitbox3D {
@@ -78,6 +75,10 @@ export class Player {
     this.#gridHitbox = {...this.#gridHitbox, ...position};
   }
 
+  get respawnPosition(): Position3D {
+    return this.#respawnPosition;
+  }
+
   get velocity(): Velocity3D {
     return this.#velocity;
   }
@@ -85,21 +86,14 @@ export class Player {
     this.#velocity = {...this.#velocity, ...velocity};
   }
 
-  get pixelPosition(): Position3D {
-    return {
-      x: this.#pixelHitbox.x,
-      y: this.#pixelHitbox.y,
-      z: this.#pixelHitbox.z
-    };
-  }
   set pixelPosition(position: Position3D) {
     this.#pixelHitbox = {...this.#pixelHitbox, ...position};
 
     this.gridPosition = screenToWorld(this.pixelHitbox);
 
     this.#chunkPosition = {
-      x: Math.round(this.gridPosition.x / constants.CHUNK_SIZE),
-      y: Math.round(this.gridPosition.y / constants.CHUNK_SIZE),
+      x: Math.round(this.gridHitbox.x / constants.CHUNK_SIZE),
+      y: Math.round(this.gridHitbox.y / constants.CHUNK_SIZE),
     };
 
     // const w = 1000 / scaledCanvas.scale;
@@ -115,25 +109,16 @@ export class Player {
     // };
   }
 
-  get gridPosition(): Position3D {
-    return {
-      x: this.#gridHitbox.x,
-      y: this.#gridHitbox.y,
-      z: this.#gridHitbox.z
-    };
-  }
-
   get health(): number {
     return this.#health;
   }
   set health(value: number) {
-    this.#health = Math.min(constants.MAX_HEALTH, value);
+    this.#health = Math.min(value, constants.MAX_HEALTH);
+    // console.log(`Player health updated to ${this.#health}`);
     if (this.#health < 0) {
-      // toggleDeath();
-      // respawnPlayer(this);
+      this.#triggerDeath();
     }
     if (value < 0) this.addInvicibiltyFrames();
-    console.log(`Player health updated to ${this.#health}`);
   }
 
   get canJump(): boolean {
@@ -147,11 +132,16 @@ export class Player {
     return this.#isInvincible;
   }
   set isInvincible(value: boolean) {
-    this.isInvincible = value;
+    this.#isInvincible = value;
   }
 
   update() {
-    this.#draw();
+    drawPlayer({
+      frame: this.#currentFrame,
+      frameCount: this.#animations[0].frameCount,
+      image: this.#image,
+      hitbox: this.pixelHitbox
+    });
     this.#updateFrames();
     this.#addInputVelocity();
 
@@ -177,7 +167,7 @@ export class Player {
     // this.checkForHit();
 
     // check for void damage
-    if (this.gridHitbox.z < constants.VOID_DEPTH) this.health -= 2;
+    if (this.pixelHitbox.z < constants.VOID_DEPTH) this.health -= 2;
   }
 
   addInvicibiltyFrames(duration = constants.INVINCIBLE_DURATION) {
@@ -192,6 +182,16 @@ export class Player {
       this.canJump = false;
       this.velocity.z = constants.JUMP_STRENGTH;
     }
+  }
+
+  #triggerDeath() {
+    this.#respawn();
+  }
+
+  #respawn() {
+    this.pixelPosition = this.respawnPosition;
+    this.velocity = {x: 0, y: 0, z: 0};
+    this.health = constants.MAX_HEALTH;
   }
 
   #addInputVelocity() {
@@ -230,24 +230,6 @@ export class Player {
         this.#currentFrame = 0;
       }
     }
-  }
-
-  #draw() {
-    const cropbox = {
-      position: {
-        x: this.#currentFrame *
-            (this.#image.width / this.#animations[0].frameCount),
-        y: this.#direction * this.#image.height * 0.25,
-      },
-      width: this.#image.width / this.#animations[0].frameCount,
-      height: this.#image.height,
-    };
-
-    this.#ctx.drawImage(
-        this.#image, cropbox.position.x, cropbox.position.y, cropbox.width,
-        cropbox.height, this.pixelHitbox.x,
-        this.pixelHitbox.y - this.pixelHitbox.z, this.pixelHitbox.width,
-        this.pixelHitbox.height);
   }
 
   #updateDirection() {

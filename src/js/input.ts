@@ -1,6 +1,6 @@
 // import {} as renderer from './renderer';
 // import {} as gameManager from './game-manager'
-import {player} from '../game';
+import {player} from './game.js';
 
 // window.addEventListener('mousemove', (e) => {
 //   renderer.updateMouse(e.clientX, e.clientY);

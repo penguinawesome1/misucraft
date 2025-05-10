@@ -1,6 +1,5 @@
 // import {} as renderer from './renderer';
 // import {} as gameManager from './game-manager'
-import './input.ts';
 import { player } from './game.js';
 // window.addEventListener('mousemove', (e) => {
 //   renderer.updateMouse(e.clientX, e.clientY);
@@ -38,7 +37,6 @@ window.addEventListener('contextmenu', (e) => {
 //   }
 // });
 document.addEventListener('keydown', (e) => {
-    console.log('hiii');
     switch (e.key.toUpperCase()) {
         case 'D':
             player.input.east = true;

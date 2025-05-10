@@ -1,5 +1,5 @@
-import {TILE_HEIGHT, TILE_WIDTH} from './constants';
-import {Position3D} from './physics';
+import {TILE_HEIGHT, TILE_WIDTH} from './constants.js';
+import {Position3D} from './physics.js';
 
 // --- Configuration ---
 const HALF_TILE_WIDTH = 0.5 * TILE_WIDTH;
