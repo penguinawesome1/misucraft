@@ -1,23 +1,29 @@
 export type Velocity2D = {
   x: number, y: number;
 };
+
 export type Position2D = {
   x: number; y: number;
 };
+
 export type Size2D = {
   width: number; height: number;
 };
+
 export type Hitbox2D = Position2D&Size2D;
 
 export type Velocity3D = {
   x: number, y: number, z: number;
 };
+
 export type Position3D = {
   x: number; y: number; z: number;
 };
+
 export type Size3D = {
   width: number; height: number; depth: number;
 };
+
 export type Hitbox3D = Position3D&Size3D;
 
 export function isCollision2D(hitbox1: Hitbox2D, hitbox2: Hitbox2D) {

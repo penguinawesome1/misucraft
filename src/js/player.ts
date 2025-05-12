@@ -1,8 +1,7 @@
-import {Animation} from './animation.js';
+import {AnimationFrameData, KeyAnimation} from './animation.js';
 import * as constants from './constants.js';
 import {screenToWorld} from './isometric-transform.js';
-import {Hitbox3D, Position2D, Position3D, Velocity3D} from './physics.js';
-import {drawPlayer} from './renderer.js'
+import {Hitbox2D, Hitbox3D, Position2D, Position3D, Velocity3D} from './physics.js';
 
 const enum Direction {
   NORTH = -1,
@@ -16,55 +15,44 @@ const enum Direction {
 }
 
 export class Player {
-  #pixelHitbox: Hitbox3D;
-  #gridHitbox: Hitbox3D;
-  #chunkPosition: Position2D;
-  #velocity: Velocity3D;
-  #respawnPosition: Position3D;
+  #screenHitbox: Hitbox3D = {x: 0, y: 0, z: 0, width: 0, height: 0, depth: 0};
+  #gridHitbox: Hitbox3D = {x: 0, y: 0, z: 0, width: 0, height: 0, depth: 0};
+  #chunkPosition: Position2D = {x: 0, y: 0};
+  #velocity: Velocity3D = {x: 0, y: 0, z: 0};
+  #respawnPosition: Position3D = {x: 0, y: 0, z: 0};
 
+  #ctx: CanvasRenderingContext2D;
   #scale: number;
-  #direction: Direction;
-  #animations: Animation[];
+  #direction: Direction = Direction.SOUTH;
+  #animations: KeyAnimation;
   #image: HTMLImageElement;
-  #elapsedFrames: number;
-  #currentFrame: number;
+  #elapsedFrames = 0;
+  #currentFrame = 0;
+  #animationKey = 'idle';
 
-  #health: number;
-  #canJump: boolean;
-  #isInvincible: boolean;
+  #health = constants.MAX_HEALTH;
+  #canJump = false;
+  #isInvincible = constants.GAME_MODE === 'creative';
 
-  input: {north: boolean; south: boolean; east: boolean; west: boolean;}
+  input = {north: false, south: false, east: false, west: false};
 
-  constructor(scale: number, animations: Animation[]) {
-    this.#pixelHitbox = {x: 0, y: 0, z: 0, width: 0, height: 0, depth: 0};
-    this.#gridHitbox = {x: 0, y: 0, z: 0, width: 0, height: 0, depth: 0};
-    this.#chunkPosition = {x: 0, y: 0};
-    this.#velocity = {x: 0, y: 0, z: 0};
-    this.#respawnPosition = {x: 0, y: 0, z: 0};
-
+  constructor(
+      ctx: CanvasRenderingContext2D, scale: number, animations: KeyAnimation) {
+    this.#ctx = ctx;
     this.#scale = scale;
-    this.#direction = Direction.SOUTH;
     this.#animations = animations;
-    this.#elapsedFrames = 0;
-    this.#currentFrame = 0;
-
-    this.#health = constants.MAX_HEALTH;
-    this.#canJump = true;
-    this.#isInvincible = constants.GAME_MODE === 'creative';
-
-    this.input = {north: false, south: false, east: false, west: false};
 
     this.#image = new Image();
     this.#image.onload = () => {
-      this.pixelHitbox.width =
-          (this.#image.width / this.#animations[0].frameCount) * this.#scale;
-      this.pixelHitbox.height = this.#image.height * this.#scale;
+      this.screenHitbox.width =
+          (this.#image.width / this.currentAnimation.frameCount) * this.#scale;
+      this.screenHitbox.height = this.#image.height * this.#scale;
     };
-    this.#image.src = animations[0].imageSrc;
+    this.#image.src = this.currentAnimation.imageSrc;
   }
 
-  get pixelHitbox(): Hitbox3D {
-    return this.#pixelHitbox;
+  get screenHitbox(): Hitbox3D {
+    return this.#screenHitbox;
   }
 
   get gridHitbox(): Hitbox3D {
@@ -83,13 +71,20 @@ export class Player {
     return this.#velocity;
   }
   set velocity(velocity: Velocity3D) {
-    this.#velocity = {...this.#velocity, ...velocity};
+    this.#velocity = velocity;
   }
 
-  set pixelPosition(position: Position3D) {
-    this.#pixelHitbox = {...this.#pixelHitbox, ...position};
+  get cameraBox(): Hitbox2D {
+    const width = 500;
+    const height = 300;
+    const {x, y, z} = this.screenHitbox;
+    return {x: x - width / 2, y: y - z - height / 2, width, height};
+  }
 
-    this.gridPosition = screenToWorld(this.pixelHitbox);
+  set screenPosition(position: Position3D) {
+    this.#screenHitbox = {...this.#screenHitbox, ...position};
+
+    this.gridPosition = screenToWorld(this.screenHitbox);
 
     this.#chunkPosition = {
       x: Math.round(this.gridHitbox.x / constants.CHUNK_SIZE),
@@ -100,9 +95,9 @@ export class Player {
     // const h = 600 / scaledCanvas.scale;
     // this.#cameraBox = {
     //   position: {
-    //     x: this.pixelPosition.x + this.pixelHitbox.width / 2 - w / 2,
-    //     y: this.pixelPosition.y + this.pixelHitbox.height / 2 - h / 2 -
-    //         this.pixelPosition.z,
+    //     x: this.screenPosition.x + this.screenHitbox.width / 2 - w / 2,
+    //     y: this.screenPosition.y + this.screenHitbox.height / 2 - h / 2 -
+    //         this.screenPosition.z,
     //   },
     //   width: w,
     //   height: h,
@@ -135,13 +130,15 @@ export class Player {
     this.#isInvincible = value;
   }
 
+  get currentAnimation(): AnimationFrameData {
+    return this.#animations[this.#animationKey] as AnimationFrameData;
+  }
+  set currentAnimation(name: string) {
+    this.#animationKey = name;
+  }
+
   update() {
-    drawPlayer({
-      frame: this.#currentFrame,
-      frameCount: this.#animations[0].frameCount,
-      image: this.#image,
-      hitbox: this.pixelHitbox
-    });
+    this.drawPlayer();
     this.#updateFrames();
     this.#addInputVelocity();
 
@@ -155,19 +152,39 @@ export class Player {
     // this.respondToFlatCollision();
 
     // apply gravity
-    this.pixelHitbox.z += this.velocity.z;
-    this.velocity.z -= constants.GRAVITY;
+    this.screenHitbox.z += this.velocity.z;
+    // this.velocity.z -= constants.GRAVITY;
 
     // this.respondToDepthCollision();
 
     // update position
-    this.pixelHitbox.x += this.velocity.x;
-    this.pixelHitbox.y += this.velocity.y * 0.5;
+    this.screenHitbox.x += this.velocity.x;
+    this.screenHitbox.y += this.velocity.y * 0.5;
 
     // this.checkForHit();
 
     // check for void damage
-    if (this.pixelHitbox.z < constants.VOID_DEPTH) this.health -= 2;
+    if (this.screenHitbox.z < constants.VOID_DEPTH) this.health -= 2;
+  }
+
+  drawPlayer() {
+    const frameCount = this.currentAnimation.frameCount;
+    const hitbox = this.#screenHitbox;
+    const sectionWidth = this.#image.width / frameCount;
+
+    const cropbox = {
+      position: {
+        x: this.#currentFrame * sectionWidth,
+        y: 0,
+      },
+      width: sectionWidth,
+      height: this.#image.height,
+    };
+
+    this.#ctx.drawImage(
+        this.#image, cropbox.position.x, cropbox.position.y, cropbox.width,
+        cropbox.height, hitbox.x, hitbox.y - hitbox.z, hitbox.width,
+        hitbox.height);
   }
 
   addInvicibiltyFrames(duration = constants.INVINCIBLE_DURATION) {
@@ -178,7 +195,7 @@ export class Player {
   }
 
   tryToJump() {
-    if (this.canJump) {
+    if (!this.canJump) {
       this.canJump = false;
       this.velocity.z = constants.JUMP_STRENGTH;
     }
@@ -189,7 +206,7 @@ export class Player {
   }
 
   #respawn() {
-    this.pixelPosition = this.respawnPosition;
+    this.screenPosition = this.respawnPosition;
     this.velocity = {x: 0, y: 0, z: 0};
     this.health = constants.MAX_HEALTH;
   }
@@ -223,8 +240,8 @@ export class Player {
   #updateFrames() {
     this.#elapsedFrames++;
 
-    if (this.#elapsedFrames % this.#animations[0].frameCount === 0) {
-      if (this.#currentFrame < this.#animations[0].fps - 1) {
+    if (this.#elapsedFrames % this.currentAnimation.frameCount === 0) {
+      if (this.#currentFrame < this.currentAnimation.fps - 1) {
         this.#currentFrame++;
       } else {
         this.#currentFrame = 0;
